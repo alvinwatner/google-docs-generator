@@ -123,7 +123,7 @@ export default function TemplatePicker({ accessToken, onTemplateSelected, onBack
             Select a Google Docs Template
           </h3>
           <p className="text-gray-600">
-            Choose a document that contains variables like {{`{client_name}`}} or {{`{project_title}`}}
+            Choose a document that contains variables like <code>{'{{client_name}}'}</code> or <code>{'{{project_title}}'}</code>
           </p>
         </div>
         <div className="flex space-x-3">
@@ -151,7 +151,7 @@ export default function TemplatePicker({ accessToken, onTemplateSelected, onBack
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Google Docs Found</h3>
           <p className="text-gray-600 mb-6 max-w-md mx-auto">
-            You don't have any Google Docs in your Drive yet. Create a new document with placeholder variables to get started.
+            You don&apos;t have any Google Docs in your Drive yet. Create a new document with placeholder variables to get started.
           </p>
           <button
             onClick={createNewTemplate}
@@ -212,8 +212,8 @@ export default function TemplatePicker({ accessToken, onTemplateSelected, onBack
         </h4>
         <div className="text-blue-800 text-sm space-y-2">
           <p>1. Create a new Google Doc or select an existing one</p>
-          <p>2. Add placeholder variables using double curly braces: <code className="bg-blue-100 px-1 rounded">{{`{variable_name}`}}</code></p>
-          <p>3. Example: "Dear {{`{client_name}`}}, your project {{`{project_title}`}} is ready."</p>
+          <p>2. Add placeholder variables using double curly braces: <code className="bg-blue-100 px-1 rounded">{'{{variable_name}}'}</code></p>
+          <p>3. Example: &ldquo;Dear {'{{client_name}}'}, your project {'{{project_title}}'} is ready.&rdquo;</p>
           <p>4. Save the document and refresh this page to see it in the list</p>
         </div>
       </div>

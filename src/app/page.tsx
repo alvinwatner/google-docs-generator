@@ -6,7 +6,12 @@ import DocumentGenerator from '@/components/DocumentGenerator';
 
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{
+    name: string;
+    email: string;
+    picture: string;
+    accessToken: string;
+  } | null>(null);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
