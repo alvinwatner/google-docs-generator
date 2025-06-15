@@ -23,6 +23,7 @@ export default function GoogleAuth({ onAuthenticated }: GoogleAuthProps) {
   }, []);
 
   const initializeGoogleAuth = () => {
+    console.log('Initializing Google Auth... ', process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
     if (typeof window !== 'undefined' && window.google) {
       window.google.accounts.id.initialize({
         client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
@@ -56,9 +57,10 @@ export default function GoogleAuth({ onAuthenticated }: GoogleAuthProps) {
     setError('');
 
     // Request additional scopes for Google Docs and Drive
-    window.google?.accounts.oauth2.initTokenClient({
+    const tokenClient = window.google?.accounts.oauth2.initTokenClient({
       client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-      scope: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly',
+      scope: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+      redirect_uri: window.location.origin,
       callback: (response: any) => {
         if (response.access_token) {
           // Store access token
@@ -88,7 +90,9 @@ export default function GoogleAuth({ onAuthenticated }: GoogleAuthProps) {
           setIsLoading(false);
         }
       },
-    }).requestAccessToken();
+    });
+    
+    tokenClient?.requestAccessToken();
   };
 
   return (
