@@ -8,7 +8,7 @@ const handler = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: "openid email profile https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.readonly"
+          scope: "openid email profile https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive"
         }
       }
     })

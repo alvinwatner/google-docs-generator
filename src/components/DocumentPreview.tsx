@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { createDocument } from '@/utils/googleDocsUtils';
+import { useState, useEffect } from 'react';
+import { createFormattedDocument } from '@/utils/advancedDocsUtils';
 
 interface DocumentPreviewProps {
   title: string;
+  templateDocId: string;
   originalContent: string;
   previewContent: string;
   values: Record<string, string>;
@@ -14,6 +15,7 @@ interface DocumentPreviewProps {
 
 export default function DocumentPreview({ 
   title, 
+  templateDocId,
   originalContent, 
   previewContent, 
   values, 
@@ -23,29 +25,82 @@ export default function DocumentPreview({
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string>('');
   const [generatedDocUrl, setGeneratedDocUrl] = useState<string>('');
+  const [formattedPreview, setFormattedPreview] = useState<string>('');
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
+  // Generate formatted preview when component loads
+  useEffect(() => {
+    const generatePreview = async () => {
+      if (Object.keys(values).length === 0) return;
+      
+      setIsLoadingPreview(true);
+      try {
+        const tempTitle = `${title} - Preview ${Date.now()}`;
+        const { documentId, previewHtml } = await createFormattedDocument(
+          templateDocId,
+          tempTitle,
+          values,
+          accessToken
+        );
+        
+        setFormattedPreview(previewHtml);
+        
+        // Clean up the temporary preview document
+        // Note: In production, you might want to keep this for faster re-generation
+        // or implement a cleanup mechanism
+        
+      } catch (err) {
+        console.error('Error generating preview:', err);
+        setError('Failed to generate formatted preview. Using basic preview.');
+        // Fallback to basic preview if formatted preview fails
+        setFormattedPreview('');
+      } finally {
+        setIsLoadingPreview(false);
+      }
+    };
+
+    generatePreview();
+  }, [templateDocId, values, accessToken, title]);
 
   const handleDownloadPDF = async () => {
     try {
       setIsGenerating(true);
       setError('');
       
-      // Create a new Google Doc with the filled content
+      // Create a formatted document with the filled content
       const newTitle = `${title} - Generated ${new Date().toLocaleDateString()}`;
-      const documentId = await createDocument(newTitle, previewContent, accessToken);
+      const { documentId } = await createFormattedDocument(
+        templateDocId,
+        newTitle,
+        values,
+        accessToken
+      );
       
       // Export as PDF
-      const pdfUrl = `https://docs.google.com/document/d/${documentId}/export?format=pdf`;
+      const pdfUrl = `https://docs.googleapis.com/v1/documents/${documentId}/export?format=pdf`;
       
-      // Create download link
+      // Create download link with authorization
+      const response = await fetch(pdfUrl, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = pdfUrl;
+      link.href = url;
       link.download = `${newTitle}.pdf`;
-      link.target = '_blank';
       
       // Trigger download
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
       
     } catch (err) {
       console.error('Error generating PDF:', err);
@@ -60,9 +115,14 @@ export default function DocumentPreview({
       setIsGenerating(true);
       setError('');
       
-      // Create a new Google Doc with the filled content
+      // Create a formatted document with the filled content
       const newTitle = `${title} - Generated ${new Date().toLocaleDateString()}`;
-      const documentId = await createDocument(newTitle, previewContent, accessToken);
+      const { documentId } = await createFormattedDocument(
+        templateDocId,
+        newTitle,
+        values,
+        accessToken
+      );
       
       const docUrl = `https://docs.google.com/document/d/${documentId}/edit`;
       setGeneratedDocUrl(docUrl);
@@ -139,12 +199,28 @@ export default function DocumentPreview({
         
         {/* Document Content */}
         <div className="p-8 min-h-96 max-h-96 overflow-y-auto">
-          <div 
-            className="prose prose-sm max-w-none leading-relaxed text-gray-900"
-            dangerouslySetInnerHTML={{ 
-              __html: formatContentForDisplay(previewContent || 'No content available') 
-            }}
-          />
+          {isLoadingPreview ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="flex items-center space-x-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <span className="text-gray-600">Generating formatted preview...</span>
+              </div>
+            </div>
+          ) : formattedPreview ? (
+            <div 
+              className="prose prose-sm max-w-none leading-relaxed text-gray-900"
+              dangerouslySetInnerHTML={{ 
+                __html: formattedPreview
+              }}
+            />
+          ) : (
+            <div 
+              className="prose prose-sm max-w-none leading-relaxed text-gray-900"
+              dangerouslySetInnerHTML={{ 
+                __html: formatContentForDisplay(previewContent || 'No content available') 
+              }}
+            />
+          )}
         </div>
         
         {/* Variable Summary */}

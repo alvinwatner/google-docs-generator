@@ -206,6 +206,7 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
         {currentStep === 'preview' && selectedTemplate && documentContent && (
           <DocumentPreview
             title={documentContent.title}
+            templateDocId={selectedTemplate.id}
             originalContent={documentContent.content}
             previewContent={replaceVariables(documentContent.content, variableValues)}
             values={variableValues}
