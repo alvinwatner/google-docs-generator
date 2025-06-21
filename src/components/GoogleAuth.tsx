@@ -65,7 +65,6 @@ export default function GoogleAuth({ onAuthenticated }: GoogleAuthProps) {
         if (response.access_token) {
           // Store access token
           localStorage.setItem('google_access_token', response.access_token);
-          
           // Get user info
           fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
             headers: {

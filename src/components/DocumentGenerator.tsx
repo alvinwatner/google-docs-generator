@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import TemplatePicker from './TemplatePicker';
+import VariableForm from './VariableForm';
+import DocumentPreview from './DocumentPreview';
+import { fetchDocumentContent, replaceVariables, type DocumentContent, type TemplateVariable } from '@/utils/googleDocsUtils';
 
 interface Template {
   id: string;
@@ -19,6 +22,10 @@ interface DocumentGeneratorProps {
 export default function DocumentGenerator({ user, onSignOut }: DocumentGeneratorProps) {
   const [currentStep, setCurrentStep] = useState<'template' | 'form' | 'preview'>('template');
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [documentContent, setDocumentContent] = useState<DocumentContent | null>(null);
+  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string>('');
 
   const handleSignOut = () => {
     // Clear stored tokens
@@ -89,14 +96,63 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="bg-white rounded-lg shadow-sm p-8">
+          <div className="flex items-center justify-center py-12">
+            <div className="flex items-center space-x-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="text-gray-700 font-medium">Loading template content...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !isLoading && (
+        <div className="bg-white rounded-lg shadow-sm p-8">
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-medium text-red-800 mb-2">Error Loading Template</h3>
+            <p className="text-red-700 text-sm mb-6">{error}</p>
+            <button
+              onClick={() => {
+                setError('');
+                setCurrentStep('template');
+              }}
+              className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+            >
+              Back to Templates
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
-      <div className="bg-white rounded-lg shadow-sm p-8">
+      {!isLoading && !error && (
+        <div className="bg-white rounded-lg shadow-sm p-8">
         {currentStep === 'template' && (
           <TemplatePicker
             accessToken={user.accessToken}
-            onTemplateSelected={(template) => {
+            onTemplateSelected={async (template) => {
               setSelectedTemplate(template);
-              setCurrentStep('form');
+              setIsLoading(true);
+              setError('');
+              
+              try {
+                const content = await fetchDocumentContent(template.id, user.accessToken);
+                setDocumentContent(content);
+                setCurrentStep('form');
+              } catch (err) {
+                console.error('Error fetching document content:', err);
+                setError('Failed to load template content. Please try again.');
+              } finally {
+                setIsLoading(false);
+              }
             }}
             onBack={() => {
               // No back action from template step
@@ -104,84 +160,61 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
           />
         )}
 
-        {currentStep === 'form' && selectedTemplate && (
+        {currentStep === 'form' && selectedTemplate && documentContent && (
           <div>
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  Fill Template Variables
+                  {documentContent.title}
                 </h3>
                 <p className="text-gray-600">
                   Template: <span className="font-medium">{selectedTemplate.name}</span>
                 </p>
               </div>
               <button
-                onClick={() => setCurrentStep('template')}
+                onClick={() => {
+                  setCurrentStep('template');
+                  setDocumentContent(null);
+                  setVariableValues({});
+                }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
               >
                 Change Template
               </button>
             </div>
             
-            {/* Form fields will be dynamically generated based on template variables */}
-            <div className="space-y-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-800 text-sm">
-                  📝 Loading template variables from <strong>{selectedTemplate.name}</strong>...
-                </p>
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-800 text-sm">{error}</p>
               </div>
-              
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => setCurrentStep('template')}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={() => setCurrentStep('preview')}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Preview Document
-                </button>
-              </div>
-            </div>
+            )}
+            
+            <VariableForm
+              variables={documentContent.variables}
+              onValuesChange={setVariableValues}
+              onSubmit={() => setCurrentStep('preview')}
+              onBack={() => {
+                setCurrentStep('template');
+                setDocumentContent(null);
+                setVariableValues({});
+              }}
+              isLoading={isLoading}
+            />
           </div>
         )}
 
-        {currentStep === 'preview' && (
-          <div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">
-              Document Preview
-            </h3>
-            <p className="text-gray-600 mb-8">
-              Review your document before downloading
-            </p>
-            
-            {/* Preview will go here */}
-            <div className="border border-gray-300 rounded-lg p-8 mb-6 min-h-96 bg-gray-50">
-              <p className="text-center text-gray-500">
-                Google Docs preview will appear here
-              </p>
-            </div>
-            
-            <div className="flex space-x-4">
-              <button
-                onClick={() => setCurrentStep('form')}
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Back to Form
-              </button>
-              <button className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
-                Download PDF
-              </button>
-              <button className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                Save to Drive
-              </button>
-            </div>
-          </div>
+        {currentStep === 'preview' && selectedTemplate && documentContent && (
+          <DocumentPreview
+            title={documentContent.title}
+            originalContent={documentContent.content}
+            previewContent={replaceVariables(documentContent.content, variableValues)}
+            values={variableValues}
+            accessToken={user.accessToken}
+            onBack={() => setCurrentStep('form')}
+          />
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -29,6 +29,12 @@ export default function TemplatePicker({ accessToken, onTemplateSelected, onBack
     setIsLoading(true);
     setError('');
 
+    if (!accessToken) {
+      setError('No access token available. Please sign in again.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // Search for Google Docs files in user's Drive
       const response = await fetch(
@@ -46,6 +52,13 @@ export default function TemplatePicker({ accessToken, onTemplateSelected, onBack
       );
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Response Error:', response.status, response.statusText, errorText);
+        
+        if (response.status === 403) {
+          throw new Error(`Google Drive API access denied. Please ensure the Google Drive API is enabled in Google Cloud Console. Error: ${response.statusText}`);
+        }
+        
         throw new Error(`Failed to load templates: ${response.statusText}`);
       }
 

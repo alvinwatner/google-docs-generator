@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import GoogleAuth from '@/components/GoogleAuth';
+import NextAuthLogin from '@/components/NextAuthLogin';
 import DocumentGenerator from '@/components/DocumentGenerator';
 
 export default function Home() {
@@ -26,10 +26,14 @@ export default function Home() {
         </header>
 
         {!isAuthenticated ? (
-          <GoogleAuth 
+          <NextAuthLogin 
             onAuthenticated={(user) => {
               setIsAuthenticated(true);
               setUser(user);
+            }}
+            onSignOut={() => {
+              setIsAuthenticated(false);
+              setUser(null);
             }}
           />
         ) : (
