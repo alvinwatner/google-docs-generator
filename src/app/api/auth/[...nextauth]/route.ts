@@ -27,7 +27,7 @@ const handler = NextAuth({
     },
     async session({ session, token }) {
       // Send properties to the client
-      session.accessToken = token.accessToken
+      session.accessToken = token.accessToken as string
       return session
     },
   },

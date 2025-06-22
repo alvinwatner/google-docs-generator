@@ -1,4 +1,5 @@
 // Utility functions for working with Google Docs API
+import { AssetSectionVariable, parseAssetSections } from './assetSectionUtils';
 
 export interface TemplateVariable {
   name: string;
@@ -10,6 +11,7 @@ export interface DocumentContent {
   title: string;
   content: string;
   variables: TemplateVariable[];
+  assetSections: AssetSectionVariable[];
 }
 
 /**
@@ -34,11 +36,13 @@ export async function fetchDocumentContent(documentId: string, accessToken: stri
     const doc = await response.json();
     const content = extractTextFromDocument(doc);
     const variables = extractVariables(content);
+    const assetSections = parseAssetSections(content);
 
     return {
       title: doc.title || 'Untitled Document',
       content,
-      variables
+      variables,
+      assetSections
     };
   } catch (error) {
     console.error('Error fetching document content:', error);
@@ -85,16 +89,27 @@ function extractTextFromDocument(doc: any): string {
 /**
  * Extract template variables from document content
  * Looks for patterns like {{variable_name}} or {{variable_name:type}}
+ * Excludes asset section markers AND variables inside asset sections
  */
 function extractVariables(content: string): TemplateVariable[] {
+  // First, remove all asset section blocks to avoid extracting their internal variables
+  let contentWithoutAssetSections = content;
+  const assetSectionRegex = /\{\{#ASSET_SECTION:[^}]+\}\}[\s\S]*?\{\{\/#ASSET_SECTION:[^}]+\}\}/g;
+  contentWithoutAssetSections = contentWithoutAssetSections.replace(assetSectionRegex, '');
+  
   const variableRegex = /\{\{([^}]+)\}\}/g;
   const variables: TemplateVariable[] = [];
   const seen = new Set<string>();
   
   let match;
-  while ((match = variableRegex.exec(content)) !== null) {
+  while ((match = variableRegex.exec(contentWithoutAssetSections)) !== null) {
     const fullMatch = match[0]; // {{variable_name}}
     const variableContent = match[1].trim(); // variable_name or variable_name:type
+    
+    // Skip any remaining asset section markers (safety check)
+    if (variableContent.startsWith('#ASSET_SECTION:') || variableContent.startsWith('/#ASSET_SECTION:')) {
+      continue;
+    }
     
     // Check if variable has type specification
     const [name, type] = variableContent.split(':').map(s => s.trim());

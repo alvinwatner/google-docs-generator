@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createFormattedDocument } from '@/utils/advancedDocsUtils';
+import { AssetSectionData } from '@/utils/assetSectionUtils';
 
 interface DocumentPreviewProps {
   title: string;
@@ -9,6 +10,7 @@ interface DocumentPreviewProps {
   originalContent: string;
   previewContent: string;
   values: Record<string, string>;
+  assetSectionData: AssetSectionData;
   accessToken: string;
   onBack: () => void;
 }
@@ -16,9 +18,9 @@ interface DocumentPreviewProps {
 export default function DocumentPreview({ 
   title, 
   templateDocId,
-  originalContent, 
   previewContent, 
   values, 
+  assetSectionData,
   accessToken, 
   onBack 
 }: DocumentPreviewProps) {
@@ -36,11 +38,12 @@ export default function DocumentPreview({
       setIsLoadingPreview(true);
       try {
         const tempTitle = `${title} - Preview ${Date.now()}`;
-        const { documentId, previewHtml } = await createFormattedDocument(
+        const { previewHtml } = await createFormattedDocument(
           templateDocId,
           tempTitle,
           values,
-          accessToken
+          accessToken,
+          assetSectionData
         );
         
         setFormattedPreview(previewHtml);
@@ -60,7 +63,7 @@ export default function DocumentPreview({
     };
 
     generatePreview();
-  }, [templateDocId, values, accessToken, title]);
+  }, [templateDocId, values, accessToken, title, assetSectionData]);
 
   const handleDownloadPDF = async () => {
     try {
@@ -73,7 +76,8 @@ export default function DocumentPreview({
         templateDocId,
         newTitle,
         values,
-        accessToken
+        accessToken,
+        assetSectionData
       );
       
       // Export as PDF
@@ -121,7 +125,8 @@ export default function DocumentPreview({
         templateDocId,
         newTitle,
         values,
-        accessToken
+        accessToken,
+        assetSectionData
       );
       
       const docUrl = `https://docs.google.com/document/d/${documentId}/edit`;

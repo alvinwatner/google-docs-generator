@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import TemplatePicker from './TemplatePicker';
 import VariableForm from './VariableForm';
 import DocumentPreview from './DocumentPreview';
-import { fetchDocumentContent, replaceVariables, type DocumentContent, type TemplateVariable } from '@/utils/googleDocsUtils';
+import { fetchDocumentContent, replaceVariables, type DocumentContent } from '@/utils/googleDocsUtils';
+import { AssetSectionData } from '@/utils/assetSectionUtils';
 
 interface Template {
   id: string;
@@ -24,6 +25,7 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [documentContent, setDocumentContent] = useState<DocumentContent | null>(null);
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+  const [assetSectionData, setAssetSectionData] = useState<AssetSectionData>({ sections: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
 
@@ -191,12 +193,15 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
             
             <VariableForm
               variables={documentContent.variables}
+              assetSections={documentContent.assetSections}
               onValuesChange={setVariableValues}
+              onAssetSectionChange={setAssetSectionData}
               onSubmit={() => setCurrentStep('preview')}
               onBack={() => {
                 setCurrentStep('template');
                 setDocumentContent(null);
                 setVariableValues({});
+                setAssetSectionData({ sections: [] });
               }}
               isLoading={isLoading}
             />
@@ -210,6 +215,7 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
             originalContent={documentContent.content}
             previewContent={replaceVariables(documentContent.content, variableValues)}
             values={variableValues}
+            assetSectionData={assetSectionData}
             accessToken={user.accessToken}
             onBack={() => setCurrentStep('form')}
           />

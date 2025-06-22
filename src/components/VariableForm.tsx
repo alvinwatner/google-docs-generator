@@ -1,11 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TemplateVariable } from '@/utils/googleDocsUtils';
+import { TemplateVariable, AssetSectionVariable } from '@/utils/googleDocsUtils';
+import { AssetSectionData, createDefaultAssetSection } from '@/utils/assetSectionUtils';
+import AssetManager from './AssetManager';
 
 interface VariableFormProps {
   variables: TemplateVariable[];
+  assetSections: AssetSectionVariable[];
   onValuesChange: (values: Record<string, string>) => void;
+  onAssetSectionChange: (data: AssetSectionData) => void;
   onSubmit: () => void;
   onBack: () => void;
   isLoading?: boolean;
@@ -13,13 +17,17 @@ interface VariableFormProps {
 
 export default function VariableForm({ 
   variables, 
+  assetSections,
   onValuesChange, 
+  onAssetSectionChange,
   onSubmit, 
   onBack, 
   isLoading = false 
 }: VariableFormProps) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [assetSectionData, setAssetSectionData] = useState<AssetSectionData>({ sections: [] });
+  const [activeTab, setActiveTab] = useState<'variables' | 'assets'>('variables');
 
   // Initialize empty values for all variables
   useEffect(() => {
@@ -30,6 +38,18 @@ export default function VariableForm({
     setValues(initialValues);
     onValuesChange(initialValues);
   }, [variables, onValuesChange]);
+
+  // Initialize asset sections if they exist in template
+  useEffect(() => {
+    if (assetSections.length > 0) {
+      const initialAssetData: AssetSectionData = {
+        sections: [createDefaultAssetSection()]
+      };
+      setAssetSectionData(initialAssetData);
+      onAssetSectionChange(initialAssetData);
+      setActiveTab('assets'); // Start with assets if they exist
+    }
+  }, [assetSections, onAssetSectionChange]);
 
   const handleValueChange = (variableName: string, value: string) => {
     const newValues = { ...values, [variableName]: value };
@@ -44,6 +64,11 @@ export default function VariableForm({
         return newErrors;
       });
     }
+  };
+
+  const handleAssetSectionChange = (data: AssetSectionData) => {
+    setAssetSectionData(data);
+    onAssetSectionChange(data);
   };
 
   const validateForm = (): boolean => {
@@ -138,51 +163,104 @@ export default function VariableForm({
     );
   }
 
+  const hasAssetSections = assetSections.length > 0;
+  const hasVariables = variables.length > 0;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="mb-8">
         <h3 className="text-2xl font-bold text-gray-900 mb-2">
-          Fill Template Variables
+          Fill Template Data
         </h3>
         <p className="text-gray-600">
-          Found {variables.length} variable{variables.length !== 1 ? 's' : ''} in your template. Fill them out below:
+          {hasVariables && hasAssetSections ? (
+            `Found ${variables.length} variable${variables.length !== 1 ? 's' : ''} and ${assetSections.length} asset section${assetSections.length !== 1 ? 's' : ''} in your template.`
+          ) : hasVariables ? (
+            `Found ${variables.length} variable${variables.length !== 1 ? 's' : ''} in your template.`
+          ) : hasAssetSections ? (
+            `Found ${assetSections.length} asset section${assetSections.length !== 1 ? 's' : ''} in your template.`
+          ) : (
+            'No variables or asset sections found in your template.'
+          )}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {variables.map((variable) => (
-          <div key={variable.name} className="space-y-2">
-            <label htmlFor={variable.name} className="block text-sm font-medium text-gray-700">
-              {variable.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-              {variable.type && variable.type !== 'text' && (
-                <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  {variable.type}
-                </span>
-              )}
-            </label>
-            <input
-              type={getInputType(variable.type || 'text')}
-              id={variable.name}
-              name={variable.name}
-              value={values[variable.name] || ''}
-              onChange={(e) => handleValueChange(variable.name, e.target.value)}
-              placeholder={getInputPlaceholder(variable)}
-              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                errors[variable.name] 
-                  ? 'border-red-500 bg-red-50' 
-                  : 'border-gray-300'
+      {/* Tabs */}
+      {hasAssetSections && hasVariables && (
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              type="button"
+              onClick={() => setActiveTab('variables')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'variables'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
-              disabled={isLoading}
-            />
-            {errors[variable.name] && (
-              <p className="text-sm text-red-600">{errors[variable.name]}</p>
-            )}
-            <p className="text-xs text-gray-500">
-              Replaces: <code className="bg-gray-100 px-1 rounded">{variable.placeholder}</code>
-            </p>
-          </div>
-        ))}
-      </div>
+            >
+              Variables ({variables.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('assets')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'assets'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Asset Sections ({assetSections.length})
+            </button>
+          </nav>
+        </div>
+      )}
+
+      {/* Variables Tab */}
+      {(activeTab === 'variables' || !hasAssetSections) && hasVariables && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {variables.map((variable) => (
+            <div key={variable.name} className="space-y-2">
+              <label htmlFor={variable.name} className="block text-sm font-medium text-gray-700">
+                {variable.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                {variable.type && variable.type !== 'text' && (
+                  <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {variable.type}
+                  </span>
+                )}
+              </label>
+              <input
+                type={getInputType(variable.type || 'text')}
+                id={variable.name}
+                name={variable.name}
+                value={values[variable.name] || ''}
+                onChange={(e) => handleValueChange(variable.name, e.target.value)}
+                placeholder={getInputPlaceholder(variable)}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors[variable.name] 
+                    ? 'border-red-500 bg-red-50' 
+                    : 'border-gray-300'
+                }`}
+                disabled={isLoading}
+              />
+              {errors[variable.name] && (
+                <p className="text-sm text-red-600">{errors[variable.name]}</p>
+              )}
+              <p className="text-xs text-gray-500">
+                Replaces: <code className="bg-gray-100 px-1 rounded">{variable.placeholder}</code>
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Asset Sections Tab */}
+      {(activeTab === 'assets' || !hasVariables) && hasAssetSections && (
+        <AssetManager
+          data={assetSectionData}
+          onChange={handleAssetSectionChange}
+          isLoading={isLoading}
+        />
+      )}
 
       <div className="flex justify-between pt-6">
         <button

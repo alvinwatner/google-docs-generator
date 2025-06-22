@@ -1,4 +1,5 @@
 // Advanced Google Docs utilities that preserve formatting
+import { AssetSectionData, generateAssetSectionTable } from './assetSectionUtils';
 
 export interface TemplateVariable {
   name: string;
@@ -46,16 +47,39 @@ export async function copyDocument(
 
 /**
  * Find and replace variables in a document while preserving formatting
+ * Now supports both simple variables and asset sections
  */
 export async function replaceVariablesInDocument(
   documentId: string,
   variables: Record<string, string>,
-  accessToken: string
+  accessToken: string,
+  assetSectionData?: AssetSectionData
 ): Promise<void> {
   try {
-    // Create batch update requests for each variable
+    // Get document content to find asset sections
+    const docResponse = await fetch(
+      `https://docs.googleapis.com/v1/documents/${documentId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (!docResponse.ok) {
+      throw new Error(`Failed to fetch document: ${docResponse.statusText}`);
+    }
+
+    const doc = await docResponse.json();
     const requests = [];
+
+    // Handle asset sections first (more complex)
+    if (assetSectionData && assetSectionData.sections.length > 0) {
+      await handleAssetSections(doc, assetSectionData, requests, accessToken);
+    }
     
+    // Handle simple variables
     for (const [variableName, value] of Object.entries(variables)) {
       // Handle different variable formats
       const patterns = [
@@ -108,6 +132,107 @@ export async function replaceVariablesInDocument(
     console.error('Error replacing variables in document:', error);
     throw error;
   }
+}
+
+/**
+ * Handle asset section replacement with table generation
+ */
+async function handleAssetSections(
+  doc: any,
+  assetSectionData: AssetSectionData,
+  requests: any[],
+  accessToken: string
+): Promise<void> {
+  const content = extractTextFromDocumentSimple(doc);
+  const assetSectionRegex = /\{\{#ASSET_SECTION:([^}]+)\}\}([\s\S]*?)\{\{\/#ASSET_SECTION:\1\}\}/g;
+  
+  let match;
+  const processedSections = new Set<string>();
+  
+  while ((match = assetSectionRegex.exec(content)) !== null) {
+    const sectionName = match[1].trim();
+    const fullMatch = match[0];
+    
+    if (!processedSections.has(sectionName)) {
+      processedSections.add(sectionName);
+      
+      // Generate tables for all asset sections
+      let replacementContent = '';
+      
+      for (let i = 0; i < assetSectionData.sections.length; i++) {
+        const section = assetSectionData.sections[i];
+        
+        // Add spacing between sections (except first)
+        if (i > 0) {
+          replacementContent += '\n\n';
+        }
+        
+        // Generate table structure
+        const tableStructure = generateAssetSectionTable(section);
+        
+        // Convert table to insertable requests
+        // For now, we'll use a simplified approach with formatted text
+        // In a production system, you'd want to use insertTable requests
+        replacementContent += generateTableAsText(section);
+      }
+      
+      // Replace the entire asset section block
+      requests.push({
+        replaceAllText: {
+          containsText: {
+            text: fullMatch,
+            matchCase: false
+          },
+          replaceText: replacementContent
+        }
+      });
+    }
+  }
+}
+
+/**
+ * Generate asset section as formatted text (fallback approach)
+ * For perfect formatting, this should be replaced with actual table insertion
+ */
+function generateTableAsText(section: any): string {
+  let result = '';
+  
+  // Center-aligned title
+  if (section.title) {
+    result += `${section.title}\n\n`;
+  }
+  
+  // Key-value pairs with consistent spacing
+  const maxKeyLength = Math.max(...section.fields.map((f: any) => f.key.length));
+  const padding = Math.max(25, maxKeyLength + 5); // Minimum 25 chars for alignment
+  
+  for (const field of section.fields) {
+    const spaces = ' '.repeat(Math.max(0, padding - field.key.length));
+    result += `${field.key}${spaces}: ${field.value}\n`;
+  }
+  
+  return result;
+}
+
+/**
+ * Extract simple text content from document
+ */
+function extractTextFromDocumentSimple(doc: any): string {
+  let text = '';
+  
+  if (doc.body && doc.body.content) {
+    for (const element of doc.body.content) {
+      if (element.paragraph) {
+        for (const paragraphElement of element.paragraph.elements || []) {
+          if (paragraphElement.textRun) {
+            text += paragraphElement.textRun.content || '';
+          }
+        }
+      }
+    }
+  }
+  
+  return text;
 }
 
 /**
@@ -282,14 +407,15 @@ export async function createFormattedDocument(
   templateDocId: string,
   newTitle: string,
   variables: Record<string, string>,
-  accessToken: string
+  accessToken: string,
+  assetSectionData?: AssetSectionData
 ): Promise<{ documentId: string; previewHtml: string }> {
   try {
     // Step 1: Copy the original document
     const newDocId = await copyDocument(templateDocId, newTitle, accessToken);
     
-    // Step 2: Replace variables in the copied document
-    await replaceVariablesInDocument(newDocId, variables, accessToken);
+    // Step 2: Replace variables in the copied document (including asset sections)
+    await replaceVariablesInDocument(newDocId, variables, accessToken, assetSectionData);
     
     // Step 3: Get HTML preview
     const previewHtml = await getDocumentAsHtml(newDocId, accessToken);
