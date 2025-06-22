@@ -1,8 +1,8 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useEffect } from 'react';
-import Image from 'next/image';
 
 // Define a type for the user object structure from NextAuth
 interface NextAuthUser {
@@ -57,7 +57,7 @@ export default function NextAuthLogin({ onAuthenticated, onSignOut }: NextAuthLo
     return (
       <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
         <div className="text-center">
-          <Image
+          <img
             src={session.user?.image || ''}
             alt={session.user?.name || ''}
             className="w-16 h-16 rounded-full mx-auto mb-4"

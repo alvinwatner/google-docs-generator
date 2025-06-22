@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import { useState } from 'react';
@@ -5,7 +6,6 @@ import TemplatePicker from './TemplatePicker';
 import VariableForm from './VariableForm';
 import DocumentPreview from './DocumentPreview';
 import { fetchDocumentContent, replaceVariables, type DocumentContent } from '@/utils/googleDocsUtils';
-import Image from 'next/image';
 
 interface Template {
   id: string;
@@ -53,7 +53,7 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
       <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Image 
+            <img 
               src={user.picture} 
               alt={user.name}
               className="w-12 h-12 rounded-full"
