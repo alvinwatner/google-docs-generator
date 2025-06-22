@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createFormattedDocument } from '@/utils/advancedDocsUtils';
+import { createFormattedDocument, getDocumentAsHtml } from '@/utils/advancedDocsUtils';
+import { Section } from '@/utils/sectionTableUtils';
 
 interface DocumentPreviewProps {
   title: string;
@@ -9,6 +10,7 @@ interface DocumentPreviewProps {
   originalContent: string;
   previewContent: string;
   values: Record<string, string>;
+  sectionValues: Record<string, Section>;
   accessToken: string;
   onBack: () => void;
 }
@@ -19,6 +21,7 @@ export default function DocumentPreview({
   originalContent, 
   previewContent, 
   values, 
+  sectionValues,
   accessToken, 
   onBack 
 }: DocumentPreviewProps) {
@@ -31,7 +34,7 @@ export default function DocumentPreview({
   // Generate formatted preview when component loads
   useEffect(() => {
     const generatePreview = async () => {
-      if (Object.keys(values).length === 0) return;
+      if (Object.keys(values).length === 0 && Object.keys(sectionValues).length === 0) return;
       
       setIsLoadingPreview(true);
       try {
@@ -43,7 +46,40 @@ export default function DocumentPreview({
           accessToken
         );
         
-        setFormattedPreview(previewHtml);
+        // Process section variables if any exist
+        if (Object.keys(sectionValues).length > 0) {
+          console.log('Processing section variables for preview:', sectionValues);
+          
+          try {
+            const sectionsResponse = await fetch('/api/docs/sections', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                documentId,
+                accessToken,
+                sections: sectionValues,
+              }),
+            });
+            
+            const responseData = await sectionsResponse.json();
+            console.log('Preview sections API response:', responseData);
+            
+            if (!sectionsResponse.ok) {
+              throw new Error(`Failed to replace section variables in preview: ${JSON.stringify(responseData)}`);
+            }
+            
+            // Get the updated HTML after section processing
+            const updatedPreviewHtml = await getDocumentAsHtml(documentId, accessToken);
+            setFormattedPreview(updatedPreviewHtml);
+          } catch (sectionError) {
+            console.error('Error processing section variables in preview:', sectionError);
+            setFormattedPreview(previewHtml); // Use preview without sections
+          }
+        } else {
+          setFormattedPreview(previewHtml);
+        }
         
         // Clean up the temporary preview document
         // Note: In production, you might want to keep this for faster re-generation
@@ -60,7 +96,7 @@ export default function DocumentPreview({
     };
 
     generatePreview();
-  }, [templateDocId, values, accessToken, title]);
+  }, [templateDocId, values, sectionValues, accessToken, title]);
 
   const handleDownloadPDF = async () => {
     try {
@@ -75,6 +111,38 @@ export default function DocumentPreview({
         values,
         accessToken
       );
+      
+      // Replace section variables with tables
+      if (Object.keys(sectionValues).length > 0) {
+        console.log('Processing section variables:', sectionValues);
+        console.log('Document ID for sections:', documentId);
+        
+        try {
+          const sectionsResponse = await fetch('/api/docs/sections', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              documentId,
+              accessToken,
+              sections: sectionValues,
+            }),
+          });
+          
+          const responseData = await sectionsResponse.json();
+          console.log('Sections API response:', responseData);
+          
+          if (!sectionsResponse.ok) {
+            throw new Error(`Failed to replace section variables with tables: ${JSON.stringify(responseData)}`);
+          }
+        } catch (error) {
+          console.error('Error processing section tables:', error);
+          throw error;
+        }
+      } else {
+        console.log('No section values to process');
+      }
       
       // Export as PDF
       const pdfUrl = `https://docs.googleapis.com/v1/documents/${documentId}/export?format=pdf`;

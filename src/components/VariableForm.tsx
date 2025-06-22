@@ -1,11 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TemplateVariable } from '@/utils/googleDocsUtils';
+import { TemplateVariable, SectionVariable } from '@/utils/googleDocsUtils';
+import { Section } from '@/utils/sectionTableUtils';
+import SectionForm from './SectionForm';
 
 interface VariableFormProps {
   variables: TemplateVariable[];
+  sectionVariables: SectionVariable[];
   onValuesChange: (values: Record<string, string>) => void;
+  onSectionsChange: (sections: Record<string, Section>) => void;
   onSubmit: () => void;
   onBack: () => void;
   isLoading?: boolean;
@@ -13,23 +17,41 @@ interface VariableFormProps {
 
 export default function VariableForm({ 
   variables, 
+  sectionVariables = [],
   onValuesChange, 
+  onSectionsChange,
   onSubmit, 
   onBack, 
   isLoading = false 
 }: VariableFormProps) {
   const [values, setValues] = useState<Record<string, string>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [sections, setSections] = useState<Record<string, Section>>({});
+  const [errors, setErrors] = useState<Record<string, string>>();
 
-  // Initialize empty values for all variables
+  // Initialize empty values for all variables and sections
   useEffect(() => {
+    // Initialize regular variables
     const initialValues: Record<string, string> = {};
     variables.forEach(variable => {
       initialValues[variable.name] = '';
     });
     setValues(initialValues);
     onValuesChange(initialValues);
-  }, [variables, onValuesChange]);
+    
+    // Initialize section variables
+    const initialSections: Record<string, Section> = {};
+    sectionVariables.forEach(sectionVar => {
+      initialSections[sectionVar.name] = {
+        title: sectionVar.name,
+        keyValuePairs: [{ key: '', value: '' }]
+      };
+    });
+    setSections(initialSections);
+    onSectionsChange(initialSections);
+    
+    console.log('VariableForm initialized with section variables:', sectionVariables);
+    console.log('Initial sections state:', initialSections);
+  }, [variables, sectionVariables, onValuesChange, onSectionsChange]);
 
   const handleValueChange = (variableName: string, value: string) => {
     const newValues = { ...values, [variableName]: value };
@@ -37,18 +59,28 @@ export default function VariableForm({
     onValuesChange(newValues);
     
     // Clear error when user starts typing
-    if (errors[variableName]) {
+    if (errors && errors[variableName]) {
       setErrors(prev => {
+        if (!prev) return {};
         const newErrors = { ...prev };
         delete newErrors[variableName];
         return newErrors;
       });
     }
   };
+  
+  const handleSectionChange = (sectionName: string, sectionData: Section) => {
+    const newSections = { ...sections, [sectionName]: sectionData };
+    setSections(newSections);
+    onSectionsChange(newSections);
+    console.log('Section updated:', sectionName, sectionData);
+    console.log('All sections after update:', newSections);
+  };
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
     
+    // Validate regular variables
     variables.forEach(variable => {
       const value = values[variable.name]?.trim();
       
@@ -77,6 +109,24 @@ export default function VariableForm({
           }
           break;
       }
+    });
+    
+    // Validate sections
+    Object.entries(sections).forEach(([sectionName, section]) => {
+      // Validate section title
+      if (!section.title.trim()) {
+        newErrors[`section_${sectionName}_title`] = 'Section title is required';
+      }
+      
+      // Validate key-value pairs
+      section.keyValuePairs.forEach((pair, index) => {
+        if (!pair.key.trim()) {
+          newErrors[`section_${sectionName}_key_${index}`] = 'Key is required';
+        }
+        if (!pair.value.trim()) {
+          newErrors[`section_${sectionName}_value_${index}`] = 'Value is required';
+        }
+      });
     });
     
     setErrors(newErrors);
@@ -108,7 +158,7 @@ export default function VariableForm({
     }
   };
 
-  if (variables.length === 0) {
+  if (variables.length === 0 && sectionVariables.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -149,40 +199,70 @@ export default function VariableForm({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {variables.map((variable) => (
-          <div key={variable.name} className="space-y-2">
-            <label htmlFor={variable.name} className="block text-sm font-medium text-gray-700">
-              {variable.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-              {variable.type && variable.type !== 'text' && (
-                <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  {variable.type}
-                </span>
-              )}
-            </label>
-            <input
-              type={getInputType(variable.type || 'text')}
-              id={variable.name}
-              name={variable.name}
-              value={values[variable.name] || ''}
-              onChange={(e) => handleValueChange(variable.name, e.target.value)}
-              placeholder={getInputPlaceholder(variable)}
-              className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                errors[variable.name] 
-                  ? 'border-red-500 bg-red-50' 
-                  : 'border-gray-300'
-              }`}
-              disabled={isLoading}
-            />
-            {errors[variable.name] && (
-              <p className="text-sm text-red-600">{errors[variable.name]}</p>
-            )}
-            <p className="text-xs text-gray-500">
-              Replaces: <code className="bg-gray-100 px-1 rounded">{variable.placeholder}</code>
-            </p>
+      {/* Regular Variables */}
+      {variables.length > 0 && (
+        <div className="mb-8">
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">Regular Variables</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {variables.map((variable) => (
+              <div key={variable.name} className="space-y-2">
+                <label htmlFor={variable.name} className="block text-sm font-medium text-gray-700">
+                  {variable.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  {variable.type && variable.type !== 'text' && (
+                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {variable.type}
+                    </span>
+                  )}
+                </label>
+                <input
+                  type={getInputType(variable.type || 'text')}
+                  id={variable.name}
+                  name={variable.name}
+                  value={values[variable.name] || ''}
+                  onChange={(e) => handleValueChange(variable.name, e.target.value)}
+                  placeholder={getInputPlaceholder(variable)}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    errors && errors[variable.name] 
+                      ? 'border-red-500 bg-red-50' 
+                      : 'border-gray-300'
+                  }`}
+                  disabled={isLoading}
+                />
+                {errors && errors[variable.name] && (
+                  <p className="text-sm text-red-600">{errors[variable.name]}</p>
+                )}
+                <p className="text-xs text-gray-500">
+                  Replaces: <code className="bg-gray-100 px-1 rounded">{variable.placeholder}</code>
+                </p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
+      
+      {/* Section Variables */}
+      {sectionVariables.length > 0 && (
+        <div className="mb-8">
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">Section Tables</h4>
+          {sectionVariables.map((sectionVar) => (
+            <div key={sectionVar.name} className="mb-6">
+              <div className="flex items-center mb-2">
+                <h5 className="text-md font-medium text-gray-700">
+                  {sectionVar.name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </h5>
+                <span className="ml-2 text-xs text-gray-500">
+                  Replaces: <code className="bg-gray-100 px-1 rounded">{sectionVar.placeholder}</code>
+                </span>
+              </div>
+              <SectionForm 
+                sectionName={sectionVar.name}
+                initialData={sections[sectionVar.name]}
+                onChange={(sectionData) => handleSectionChange(sectionVar.name, sectionData)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex justify-between pt-6">
         <button
@@ -215,9 +295,10 @@ export default function VariableForm({
           💡 Variable Types
         </h4>
         <div className="text-blue-800 text-sm space-y-2">
-          <p><strong>Basic:</strong> <code className="bg-blue-100 px-1 rounded">{'{{name}}'}</code> - Text field</p>
-          <p><strong>Typed:</strong> <code className="bg-blue-100 px-1 rounded">{'{{email:email}}'}</code> - Email validation</p>
-          <p><strong>Other types:</strong> <code className="bg-blue-100 px-1 rounded">{'{{age:number}}'}</code>, <code className="bg-blue-100 px-1 rounded">{'{{date:date}}'}</code></p>
+          <p><strong>Basic:</strong> <code className="bg-blue-100 px-1 rounded">&#123;&#123;name&#125;&#125;</code> - Text field</p>
+          <p><strong>Typed:</strong> <code className="bg-blue-100 px-1 rounded">&#123;&#123;email:email&#125;&#125;</code> - Email validation</p>
+          <p><strong>Other types:</strong> <code className="bg-blue-100 px-1 rounded">&#123;&#123;age:number&#125;&#125;</code>, <code className="bg-blue-100 px-1 rounded">&#123;&#123;date:date&#125;&#125;</code></p>
+          <p><strong>Section Tables:</strong> <code className="bg-blue-100 px-1 rounded">&#91;&#91;section:SectionName&#93;&#93;</code> - Creates a table with key-value pairs</p>
         </div>
       </div>
     </form>

@@ -5,6 +5,7 @@ import TemplatePicker from './TemplatePicker';
 import VariableForm from './VariableForm';
 import DocumentPreview from './DocumentPreview';
 import { fetchDocumentContent, replaceVariables, type DocumentContent, type TemplateVariable } from '@/utils/googleDocsUtils';
+import { Section } from '@/utils/sectionTableUtils';
 
 interface Template {
   id: string;
@@ -24,6 +25,7 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [documentContent, setDocumentContent] = useState<DocumentContent | null>(null);
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+  const [sectionValues, setSectionValues] = useState<Record<string, Section>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
 
@@ -39,6 +41,17 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
     }
     
     onSignOut();
+  };
+
+  const handleVariableFormSubmit = () => {
+    setCurrentStep('preview');
+  };
+
+  const handleBack = () => {
+    setCurrentStep('template');
+    setDocumentContent(null);
+    setVariableValues({});
+    setSectionValues({});
   };
 
   return (
@@ -176,6 +189,7 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
                   setCurrentStep('template');
                   setDocumentContent(null);
                   setVariableValues({});
+                  setSectionValues({});
                 }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
               >
@@ -189,15 +203,13 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
               </div>
             )}
             
-            <VariableForm
-              variables={documentContent.variables}
+            <VariableForm 
+              variables={documentContent?.variables || []} 
+              sectionVariables={documentContent?.sectionVariables || []}
               onValuesChange={setVariableValues}
-              onSubmit={() => setCurrentStep('preview')}
-              onBack={() => {
-                setCurrentStep('template');
-                setDocumentContent(null);
-                setVariableValues({});
-              }}
+              onSectionsChange={setSectionValues}
+              onSubmit={handleVariableFormSubmit}
+              onBack={handleBack}
               isLoading={isLoading}
             />
           </div>
@@ -210,6 +222,7 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
             originalContent={documentContent.content}
             previewContent={replaceVariables(documentContent.content, variableValues)}
             values={variableValues}
+            sectionValues={sectionValues}
             accessToken={user.accessToken}
             onBack={() => setCurrentStep('form')}
           />

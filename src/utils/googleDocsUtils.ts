@@ -10,6 +10,7 @@ export interface DocumentContent {
   title: string;
   content: string;
   variables: TemplateVariable[];
+  sectionVariables: SectionVariable[];
 }
 
 /**
@@ -34,11 +35,13 @@ export async function fetchDocumentContent(documentId: string, accessToken: stri
     const doc = await response.json();
     const content = extractTextFromDocument(doc);
     const variables = extractVariables(content);
+    const sectionVariables = extractSectionVariables(content);
 
     return {
       title: doc.title || 'Untitled Document',
       content,
-      variables
+      variables,
+      sectionVariables
     };
   } catch (error) {
     console.error('Error fetching document content:', error);
@@ -49,7 +52,7 @@ export async function fetchDocumentContent(documentId: string, accessToken: stri
 /**
  * Extract plain text content from Google Docs document structure
  */
-function extractTextFromDocument(doc: any): string {
+function extractTextFromDocument(doc: Record<string, any>): string {
   let text = '';
   
   if (doc.body && doc.body.content) {
@@ -111,6 +114,41 @@ function extractVariables(content: string): TemplateVariable[] {
   }
   
   return variables;
+}
+
+/**
+ * Section variable interface
+ */
+export interface SectionVariable {
+  name: string;
+  placeholder: string; // The full [[section:SectionName]] text
+}
+
+/**
+ * Extract section variables from document content
+ * Looks for patterns like [[section:SectionName]]
+ */
+export function extractSectionVariables(content: string): SectionVariable[] {
+  const sectionRegex = /\[\[section:([^\]]+)\]\]/g;
+  const sectionVariables: SectionVariable[] = [];
+  const seen = new Set<string>();
+  
+  let match;
+  while ((match = sectionRegex.exec(content)) !== null) {
+    const fullMatch = match[0]; // [[section:SectionName]]
+    const sectionName = match[1].trim(); // SectionName
+    
+    // Only add unique section variables
+    if (!seen.has(sectionName)) {
+      seen.add(sectionName);
+      sectionVariables.push({
+        name: sectionName,
+        placeholder: fullMatch
+      });
+    }
+  }
+  
+  return sectionVariables;
 }
 
 /**
