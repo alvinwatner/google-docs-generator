@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface Template {
   id: string;
@@ -21,11 +21,8 @@ export default function TemplatePicker({ accessToken, onTemplateSelected, onBack
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
 
-  useEffect(() => {
-    loadGoogleDriveTemplates();
-  }, [accessToken]);
 
-  const loadGoogleDriveTemplates = async () => {
+  const loadGoogleDriveTemplates = useCallback(async () => {
     setIsLoading(true);
     setError('');
 
@@ -70,7 +67,11 @@ export default function TemplatePicker({ accessToken, onTemplateSelected, onBack
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [accessToken]);
+
+  useEffect(() => {
+    loadGoogleDriveTemplates();
+  }, [accessToken, loadGoogleDriveTemplates]);
 
   const createNewTemplate = () => {
     // Open Google Docs in a new tab to create a template

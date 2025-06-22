@@ -5,8 +5,7 @@ import { createFormattedDocument } from '@/utils/advancedDocsUtils';
 
 interface DocumentPreviewProps {
   title: string;
-  templateDocId: string;
-  originalContent: string;
+  templateDocId: string;  
   previewContent: string;
   values: Record<string, string>;
   accessToken: string;
@@ -16,7 +15,7 @@ interface DocumentPreviewProps {
 export default function DocumentPreview({ 
   title, 
   templateDocId,
-  originalContent, 
+  
   previewContent, 
   values, 
   accessToken, 
@@ -36,7 +35,7 @@ export default function DocumentPreview({
       setIsLoadingPreview(true);
       try {
         const tempTitle = `${title} - Preview ${Date.now()}`;
-        const { documentId, previewHtml } = await createFormattedDocument(
+        const { previewHtml } = await createFormattedDocument(
           templateDocId,
           tempTitle,
           values,

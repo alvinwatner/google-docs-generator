@@ -2,9 +2,18 @@
 
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useEffect } from 'react';
+import Image from 'next/image';
+
+// Define a type for the user object structure from NextAuth
+interface NextAuthUser {
+  name: string;
+  email: string;
+  picture: string;
+  accessToken: string;
+}
 
 interface NextAuthLoginProps {
-  onAuthenticated: (user: any) => void;
+  onAuthenticated: (user: NextAuthUser) => void;
   onSignOut?: () => void;
 }
 
@@ -18,7 +27,7 @@ export default function NextAuthLogin({ onAuthenticated, onSignOut }: NextAuthLo
         name: session.user?.name || '',
         email: session.user?.email || '',
         picture: session.user?.image || '',
-        accessToken: (session as any).accessToken || '',
+        accessToken: (session as { accessToken?: string }).accessToken || '',
       };
       onAuthenticated(user);
     }
@@ -48,7 +57,7 @@ export default function NextAuthLogin({ onAuthenticated, onSignOut }: NextAuthLo
     return (
       <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
         <div className="text-center">
-          <img
+          <Image
             src={session.user?.image || ''}
             alt={session.user?.name || ''}
             className="w-16 h-16 rounded-full mx-auto mb-4"

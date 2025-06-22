@@ -1,5 +1,35 @@
 // Utility functions for working with Google Docs API
 
+// Google Docs API type definitions
+interface GoogleDocument {
+  body: {
+    content: Array<{
+      paragraph?: {
+        elements?: Array<{
+          textRun?: {
+            content?: string;
+          };
+        }>;
+      };
+      table?: {
+        tableRows?: Array<{
+          tableCells?: Array<{
+            content?: Array<{
+              paragraph?: {
+                elements?: Array<{
+                  textRun?: {
+                    content?: string;
+                  };
+                }>;
+              };
+            }>;
+          }>;
+        }>;
+      };
+    }>;
+  };
+}
+
 export interface TemplateVariable {
   name: string;
   placeholder: string; // The full {{variable_name}} text
@@ -49,7 +79,7 @@ export async function fetchDocumentContent(documentId: string, accessToken: stri
 /**
  * Extract plain text content from Google Docs document structure
  */
-function extractTextFromDocument(doc: any): string {
+function extractTextFromDocument(doc: GoogleDocument): string {
   let text = '';
   
   if (doc.body && doc.body.content) {

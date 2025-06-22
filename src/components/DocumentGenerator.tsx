@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import TemplatePicker from './TemplatePicker';
 import VariableForm from './VariableForm';
 import DocumentPreview from './DocumentPreview';
-import { fetchDocumentContent, replaceVariables, type DocumentContent, type TemplateVariable } from '@/utils/googleDocsUtils';
+import { fetchDocumentContent, replaceVariables, type DocumentContent } from '@/utils/googleDocsUtils';
+import Image from 'next/image';
 
 interface Template {
   id: string;
@@ -15,7 +16,12 @@ interface Template {
 }
 
 interface DocumentGeneratorProps {
-  user: any;
+  user: {
+    accessToken: string;
+    name: string;
+    email: string;
+    picture: string;
+  };
   onSignOut: () => void;
 }
 
@@ -47,7 +53,7 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
       <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <img 
+            <Image 
               src={user.picture} 
               alt={user.name}
               className="w-12 h-12 rounded-full"
@@ -206,8 +212,7 @@ export default function DocumentGenerator({ user, onSignOut }: DocumentGenerator
         {currentStep === 'preview' && selectedTemplate && documentContent && (
           <DocumentPreview
             title={documentContent.title}
-            templateDocId={selectedTemplate.id}
-            originalContent={documentContent.content}
+            templateDocId={selectedTemplate.id}            
             previewContent={replaceVariables(documentContent.content, variableValues)}
             values={variableValues}
             accessToken={user.accessToken}

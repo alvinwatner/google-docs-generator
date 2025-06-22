@@ -25,7 +25,7 @@ export default function Home() {
           </p>
         </header>
 
-        {!isAuthenticated ? (
+        {!isAuthenticated || !user ? (
           <NextAuthLogin 
             onAuthenticated={(user) => {
               setIsAuthenticated(true);

@@ -1,6 +1,26 @@
-import NextAuth from "next-auth"
+import NextAuth from "next-auth/next"
 import GoogleProvider from "next-auth/providers/google"
 
+// Extend the built-in session and JWT types
+declare module "next-auth" {
+  interface Session {
+    accessToken?: string;
+    user?: {
+      name?: string;
+      email?: string;
+      image?: string;
+    }
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    accessToken?: string;
+    refreshToken?: string;
+  }
+}
+
+// Configure NextAuth
 const handler = NextAuth({
   providers: [
     GoogleProvider({
@@ -17,24 +37,24 @@ const handler = NextAuth({
     async jwt({ token, account }) {
       // Save the access token and refresh token to the JWT on the initial login
       if (account) {
-        return {
-          ...token,
-          accessToken: account.access_token,
-          refreshToken: account.refresh_token,
-        }
+        token.accessToken = account.access_token;
+        token.refreshToken = account.refresh_token;
       }
-      return token
+      return token;
     },
     async session({ session, token }) {
       // Send properties to the client
-      session.accessToken = token.accessToken
-      return session
+      return {
+        ...session,
+        accessToken: token.accessToken
+      };
     },
   },
   pages: {
     signIn: '/auth/signin',
     error: '/auth/error',
   }
-})
+});
 
-export { handler as GET, handler as POST }
+// Export the handler for the GET and POST methods
+export { handler as GET, handler as POST };

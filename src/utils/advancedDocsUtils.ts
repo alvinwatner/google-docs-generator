@@ -1,5 +1,57 @@
 // Advanced Google Docs utilities that preserve formatting
 
+// Google Docs API type definitions
+interface GoogleDocument {
+  body: {
+    content: Array<{
+      paragraph?: GoogleParagraph;
+      table?: GoogleTable;
+      sectionBreak?: Record<string, unknown>;
+    }>;
+  };
+}
+
+interface GoogleParagraph {
+  paragraphStyle?: {
+    alignment?: string;
+    lineSpacing?: number;
+    indentFirstLine?: { magnitude?: number; unit?: string };
+    indentStart?: { magnitude?: number; unit?: string };
+    spaceAbove?: { magnitude?: number; unit?: string };
+    spaceBelow?: { magnitude?: number; unit?: string };
+  };
+  elements: Array<{
+    textRun?: GoogleTextRun;
+    inlineObjectElement?: Record<string, unknown>;
+    pageBreak?: Record<string, unknown>;
+  }>;
+}
+
+interface GoogleTextRun {
+  content: string;
+  textStyle?: {
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    strikethrough?: boolean;
+    fontSize?: { magnitude?: number; unit?: string };
+    foregroundColor?: { color?: { rgbColor?: { red?: number; green?: number; blue?: number } } };
+    backgroundColor?: { color?: { rgbColor?: { red?: number; green?: number; blue?: number } } };
+    link?: { url?: string };
+    weightedFontFamily?: { fontFamily?: string };
+  };
+}
+
+interface GoogleTable {
+  tableRows: Array<{
+    tableCells: Array<{
+      content: Array<{
+        paragraph?: GoogleParagraph;
+      }>;
+    }>;
+  }>;
+}
+
 export interface TemplateVariable {
   name: string;
   placeholder: string;
@@ -144,7 +196,7 @@ export async function getDocumentAsHtml(
 /**
  * Convert Google Docs structure to HTML (preserving basic formatting)
  */
-function convertDocumentToHtml(doc: any): string {
+function convertDocumentToHtml(doc: GoogleDocument): string {
   let html = '';
   
   if (doc.body && doc.body.content) {
@@ -162,7 +214,7 @@ function convertDocumentToHtml(doc: any): string {
   return html;
 }
 
-function convertParagraphToHtml(paragraph: any): string {
+function convertParagraphToHtml(paragraph: GoogleParagraph): string {
   let paragraphHtml = '<p';
   
   // Add paragraph styling
@@ -173,10 +225,10 @@ function convertParagraphToHtml(paragraph: any): string {
     if (style.alignment) {
       styles.push(`text-align: ${style.alignment.toLowerCase()}`);
     }
-    if (style.spaceAbove) {
+    if (style.spaceAbove && style.spaceAbove.magnitude !== undefined && style.spaceAbove.unit) {
       styles.push(`margin-top: ${style.spaceAbove.magnitude}${style.spaceAbove.unit.toLowerCase()}`);
     }
-    if (style.spaceBelow) {
+    if (style.spaceBelow && style.spaceBelow.magnitude !== undefined && style.spaceBelow.unit) {
       styles.push(`margin-bottom: ${style.spaceBelow.magnitude}${style.spaceBelow.unit.toLowerCase()}`);
     }
     
@@ -202,7 +254,7 @@ function convertParagraphToHtml(paragraph: any): string {
   return paragraphHtml;
 }
 
-function convertTextRunToHtml(textRun: any): string {
+function convertTextRunToHtml(textRun: GoogleTextRun): string {
   let text = textRun.content || '';
   
   if (textRun.textStyle) {
@@ -228,16 +280,18 @@ function convertTextRunToHtml(textRun: any): string {
       const color = style.foregroundColor.color;
       if (color.rgbColor) {
         const rgb = color.rgbColor;
-        styles.push(`color: rgb(${Math.round(rgb.red * 255)}, ${Math.round(rgb.green * 255)}, ${Math.round(rgb.blue * 255)})`);
+        if (rgb.red !== undefined && rgb.green !== undefined && rgb.blue !== undefined) {
+          styles.push(`color: rgb(${Math.round(rgb.red * 255)}, ${Math.round(rgb.green * 255)}, ${Math.round(rgb.blue * 255)})`); 
+        }
       }
     }
     
-    if (style.fontSize && style.fontSize.magnitude) {
+    if (style.fontSize && style.fontSize.magnitude !== undefined && style.fontSize.unit) {
       styles.push(`font-size: ${style.fontSize.magnitude}${style.fontSize.unit.toLowerCase()}`);
     }
     
-    if (style.weightedFontFamily && style.weightedFontFamily.fontFamily) {
-      styles.push(`font-family: "${style.weightedFontFamily.fontFamily}"`);
+    if (style.weightedFontFamily?.fontFamily) {
+      styles.push(`font-family: ${style.weightedFontFamily.fontFamily}`);
     }
     
     if (styles.length > 0) {
@@ -248,7 +302,7 @@ function convertTextRunToHtml(textRun: any): string {
   return text;
 }
 
-function convertTableToHtml(table: any): string {
+function convertTableToHtml(table: GoogleTable): string {
   let tableHtml = '<table style="border-collapse: collapse; width: 100%;">';
   
   if (table.tableRows) {
