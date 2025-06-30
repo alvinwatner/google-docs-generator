@@ -75,20 +75,24 @@ export default function DocumentPreview({
         accessToken
       );
       
-      // Export as PDF
-      const pdfUrl = `https://docs.googleapis.com/v1/documents/${documentId}/export?format=pdf`;
-      
-      // Create download link with authorization
-      const response = await fetch(pdfUrl, {
+      // Call your API endpoint
+      const response = await fetch('/api/export-pdf', {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          documentId,
+          accessToken
+        }),
       });
-      
+  
       if (!response.ok) {
-        throw new Error('Failed to generate PDF');
+        const error = await response.text();
+        throw new Error(error || 'Failed to generate PDF');
       }
-      
+  
+      // Create download link
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
